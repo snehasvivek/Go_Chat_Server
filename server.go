@@ -22,43 +22,43 @@ func newServer() *server {
 func (s *server) run() {
 	for cmd := range s.commands {
 		switch cmd.id {
-		case CMD_NICK:
-			s.nick(cmd.client, cmd.args)
-		case CMD_JOIN:
-			s.join(cmd.client, cmd.args)
-		case CMD_ROOMS:
-			s.listRooms(cmd.client)
-		case CMD_MSG:
-			s.msg(cmd.client, cmd.args)
-		case CMD_QUIT:
-			s.quit(cmd.client)
+		case NAME:
+			s.name(cmd.user, cmd.args)
+		case JOIN:
+			s.join(cmd.user, cmd.args)
+		case ROOMS:
+			s.listRooms(cmd.user)
+		case MSG:
+			s.msg(cmd.user, cmd.args)
+		case QUIT:
+			s.quit(cmd.user)
 		}
 	}
 }
-func (s *server) newClient(conn net.Conn) *client {
-	log.Printf("new client has connected: %s", conn.RemoteAddr().String())
+func (s *server) newUser(conn net.Conn) *user {
+	log.Printf("User Connected: %s", conn.RemoteAddr().String())
 
-	return &client{
+	return &user{
 		conn:     conn,
-		nick:     "anonymous",
+		name:     "anonymous",
 		commands: s.commands,
 	}
 
 }
 
-func (s *server) nick(c *client, args []string) {
+func (s *server) name(u *user, args []string) {
 	if len(args) < 2 {
-		c.msg("nick is required. usage: /nick NAME")
+		u.msg("Name Required. Format: *name NAME")
 		return
 	}
 
-	c.nick = args[1]
-	c.msg(fmt.Sprintf("all right, I will call you %s", c.nick))
+	u.name = args[1]
+	u.msg(fmt.Sprintf("Name Set - %s", u.name))
 }
 
-func (s *server) join(c *client, args []string) {
+func (s *server) join(u *user, args []string) {
 	if len(args) < 2 {
-		c.msg("room name is required. usage: /join ROOM_NAME")
+		u.msg("Room Name Required. Format: *join ROOM_NAME")
 		return
 	}
 
@@ -70,59 +70,59 @@ func (s *server) join(c *client, args []string) {
 	if !ok {
 		r = &room{
 			name:    roomName,
-			members: make(map[net.Addr]*client),
+			members: make(map[net.Addr]*user),
 		}
 		s.rooms[roomName] = r
 	}
 
 	// adds client to new room
-	r.members[c.conn.RemoteAddr()] = c
+	r.members[u.conn.RemoteAddr()] = u
 
 	// quits current room
-	s.quitCurrentRoom(c)
+	s.quitCurrentRoom(u)
 
 	// sets the new room within the client structure
-	c.room = r
+	u.room = r
 
 	// broadcast message to the rest of the room
-	r.broadcast(c, fmt.Sprintf("%s has joined the room", c.nick))
+	r.broadcast(u, fmt.Sprintf("%s has entered the room", u.name))
 
 	// broadcast message to the client
-	c.msg(fmt.Sprint("welcome to %s", roomName))
+	u.msg(fmt.Sprint("Welcome to ", roomName))
 }
 
-func (s *server) listRooms(c *client) {
+func (s *server) listRooms(u *user) {
 	var rooms []string
 	for name := range s.rooms {
 		rooms = append(rooms, name)
 	}
-	c.msg(fmt.Sprintf("available rooms are %s", strings.Join(rooms, ", ")))
+	u.msg(fmt.Sprintf("Current Rooms: %s", strings.Join(rooms, ", ")))
 
 }
 
-func (s *server) msg(c *client, args []string) {
+func (s *server) msg(u *user, args []string) {
 	if len(args) < 2 {
-		c.msg("message is required, usage: /msg MSG")
+		u.msg("Message is required. Format: *msg MSG")
 		return
 	}
 	msg := strings.Join(args[1:], " ")
-	c.room.broadcast(c, c.nick+": "+msg)
+	u.room.broadcast(u, u.name+": "+msg)
 
 }
 
-func (s *server) quit(c *client) {
-	log.Printf("client has disconnected: %s", c.conn.RemoteAddr().String())
+func (s *server) quit(u *user) {
+	log.Printf("User Disconncted: %s", u.conn.RemoteAddr().String())
 
-	s.quitCurrentRoom(c)
+	s.quitCurrentRoom(u)
 
-	c.msg("sad to see you go :(")
-	c.conn.Close()
+	u.msg("Goodbye")
+	u.conn.Close()
 }
 
-func (s *server) quitCurrentRoom(c *client) {
-	if c.room != nil {
-		oldRoom := s.rooms[c.room.name]
-		delete(s.rooms[c.room.name].members, c.conn.RemoteAddr())
-		oldRoom.broadcast(c, fmt.Sprintf("%s has left the room", c.nick))
+func (s *server) quitCurrentRoom(u *user) {
+	if u.room != nil {
+		oldRoom := s.rooms[u.room.name]
+		delete(s.rooms[u.room.name].members, u.conn.RemoteAddr())
+		oldRoom.broadcast(u, fmt.Sprintf("%s has left room", u.name))
 	}
 }
