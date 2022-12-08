@@ -21,6 +21,6 @@ To connect to the server as a user:
 comand        description
 -------       --------------
 *name {NAME}  sets the name of the user 
-*join {ROOM}  if ROOM exists, puts user in ROOM; if ROOM does not exist, creates user and puts user in ROOM 
+*join {ROOM}  if ROOM exists, puts user in ROOM; if ROOM does not exist, creates user and puts - user in ROOM 
 *rooms        lists all current rooms 
 *msg {MSG}    broadcasts MSG to all members in the room 
